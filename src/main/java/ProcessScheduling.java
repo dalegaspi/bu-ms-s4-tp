@@ -2,15 +2,24 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.util.*;
+import java.util.function.Consumer;
 import java.util.stream.Collectors;
 
 /**
  * Process scheduler implementation
  *
+ * All the required classes/interfaces are in this file for simplicity.
+ *
+ * Tested to work with Java 11.  It uses some features beyond Java 8 like type
+ * inference.
+ *
  * @author dlegaspi@bu.edu
  */
 public class ProcessScheduling {
 
+	/**
+	 * the default input file
+	 */
 	public static final String DEFAULT_INPUT = "process_scheduling_input.txt ";
 
 	/**
@@ -71,17 +80,22 @@ public class ProcessScheduling {
 
 	/**
 	 * Process list
+	 *
+	 * we are creating a new class to abstract some process list operations that
+	 * differentiate between list implementations for simplified access and less
+	 * prone to bugs. This also allows us to change the collection implementation as
+	 * we see fit without changing the rest of the code that uses the list
 	 */
 	static class ProcessList {
 		private List<Process> list;
 		private int originalListSize;
 
 		/**
-		 * constructor; clones the list
+		 * private constructor; clones the list
 		 *
 		 * @param processes
 		 */
-		public ProcessList(List<Process> processes) {
+		private ProcessList(List<Process> processes) {
 			this.list = new ArrayList<>(processes);
 			this.originalListSize = processes.size();
 		}
@@ -89,7 +103,8 @@ public class ProcessScheduling {
 		/**
 		 * process list from file
 		 *
-		 * @param fname filename
+		 * @param fname
+		 *            filename
 		 * @return the process list
 		 * @throws IOException
 		 */
@@ -107,22 +122,37 @@ public class ProcessScheduling {
 			}
 		}
 
-		public List<Process> toList() {
-			return list;
+		/**
+		 * returns iterator for the process list
+		 *
+		 * @return the iterator
+		 */
+		public Iterator<Process> iterator() {
+			return list.iterator();
+		}
+
+		/**
+		 * is it empty?
+		 *
+		 * @return true if empty
+		 */
+		public boolean isEmpty() {
+			return this.list.size() == 0;
+		}
+
+		/**
+		 * the list is modified over time, so we save the original size
+		 *
+		 * @return the original list size
+		 */
+		public int getOriginalListSize() {
+			return this.originalListSize;
 		}
 
 		@Override
 		public String toString() {
 			return list.stream().map(p -> String.format("Id = %d, priority = %d, duration = %d, arrival = %d",
 					p.getId(), p.getPriority(), p.getDuration(), p.getArrival())).collect(Collectors.joining("\n"));
-		}
-
-		public boolean isEmpty() {
-			return this.list.size() == 0;
-		}
-
-		public int getOriginalListSize() {
-			return this.originalListSize;
 		}
 	}
 
@@ -138,55 +168,119 @@ public class ProcessScheduling {
 		private float totalWaitTime;
 		private ProcessList processes;
 		private final int maxWaitTime;
+		private Consumer<String> eventHandler;
 
+		/**
+		 * increments the scheduler's clock/time
+		 *
+		 * @param delta delta
+		 */
 		private void incrementTime(int delta) {
 			currentTime += delta;
 		}
 
+		/**
+		 * Overload to increment time by 1 unit
+		 */
 		private void incrementTime() {
 			incrementTime(1);
 		}
 
-		public Scheduler(ProcessList processes, int maxWaitTime) {
+		/**
+		 * current time as kept by the scheduler
+		 *
+		 * @return the time
+		 */
+		public int getCurrentTime() {
+			return currentTime;
+		}
+
+		/**
+		 * The main constructor
+		 *
+		 * @param processes process list
+		 * @param maxWaitTime max wait time
+		 * @param eventHandler event handler (logging)
+		 */
+		public Scheduler(ProcessList processes, int maxWaitTime, Consumer<String> eventHandler) {
 			this.processes = processes;
 			this.maxWaitTime = maxWaitTime;
 			this.queue = new PriorityQueue<>(processes.getOriginalListSize(), Process.getComparator());
+			this.eventHandler = eventHandler;
 		}
 
-		public Scheduler(ProcessList process) {
-			this(process, DEFAULT_MAX_WAIT_TIME);
+		/**
+		 * Convenience overloaded constructor with applied defaults
+		 *
+		 * @param processes the process list
+		 */
+		public Scheduler(ProcessList processes) {
+			this(processes, DEFAULT_MAX_WAIT_TIME, System.out::println);
 		}
 
+		/**
+		 * is it running?
+		 *
+		 * @return true if running
+		 */
 		public boolean isRunning() {
 			return isRunning;
 		}
 
+		/**
+		 * changes the state of the scheduler
+		 *
+		 * @param running true/false
+		 */
 		public void setRunning(boolean running) {
 			isRunning = running;
 		}
 
+		/**
+		 * total wait times
+		 *
+		 * @return the total
+		 */
 		public float getTotalWaitTime() {
 			return totalWaitTime;
 		}
 
+		/**
+		 * increments total wait time
+		 *
+		 * @param time the time delta
+		 */
 		private void incTotalWaitTime(int time) {
 			totalWaitTime += time;
 		}
 
+		/**
+		 * computes average wait time based on the accumulated total / # of processes
+		 *
+		 * @return the ave wait time
+		 */
 		public float getAverageWaitTime() {
 			return totalWaitTime / processes.getOriginalListSize();
 		}
 
+		/**
+		 * the max wait time
+		 *
+		 * @return max wait time
+		 */
 		public int getMaxWaitTime() {
 			return maxWaitTime;
 		}
 
-		public void loop() {
-
+		private void log(String format, Object... args) {
+			eventHandler.accept(String.format(format, args));
 		}
 
-		public int getCurrentTime() {
-			return currentTime;
+		/**
+		 * main loop
+		 */
+		public void loop() {
+			log("%nMaximum wait time = %d%n", getMaxWaitTime());
 		}
 	}
 
@@ -205,6 +299,7 @@ public class ProcessScheduling {
 		var scheduler = new Scheduler(plist);
 
 		// run all processes
+
 		scheduler.loop();
 	}
 }

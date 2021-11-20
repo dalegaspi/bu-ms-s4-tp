@@ -76,17 +76,19 @@
                                <!-- create the pdf from md then copy to /submit folder -->
                                <exec dir="${project.basedir}/doc" executable="pandoc">
                                    <arg value="-o"/>
-                                   <arg value="Hw3_p1_p6.pdf"/>
-                                   <arg value="Hw3_p1_p6.md"/>
+                                   <arg value="project_documentation.pdf"/>
+                                   <arg value="project_documentation.md"/>
                                </exec>
                                <delete dir="${project.basedir}/submit" />
                                <copy todir="${project.basedir}/submit">
                                    <fileset dir="${basedir}/doc" includes="*.pdf"/>
                                </copy>
                                <!-- copy pertinent source files from /src to /submit folder then zip -->
-                               <copy file="${build.sourceDirectory}/Hw3_p7.java" todir="${project.basedir}/submit" />
-                               <copy file="${build.sourceDirectory}/nodeTrees/IntBST.java" todir="${project.basedir}/submit" />
-                               <zip destfile="${project.basedir}/Legaspi_Dexter_hw4.zip"
+                               <copy file="${project.basedir}/process_scheduling_input.txt " todir="${project.basedir}/submit" />
+                               <copy todir="${project.basedir}/submit">
+                                   <fileset dir="${build.sourceDirectory}" includes="*.java"/>
+                               </copy>
+                               <zip destfile="${project.basedir}/Legaspi_Dexter_project.zip"
                                     basedir="${project.basedir}/submit"
                                     includes="*.*" />
                            </target>

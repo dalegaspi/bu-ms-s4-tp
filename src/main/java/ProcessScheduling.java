@@ -10,7 +10,7 @@ import java.util.stream.Collectors;
  *
  * All the required classes/interfaces are in this file for simplicity.
  *
- * Tested to work with Java 11.  It uses some features beyond Java 8 like type
+ * Tested to work with Java 11. It uses some features beyond Java 8 like type
  * inference.
  *
  * @author dlegaspi@bu.edu
@@ -20,7 +20,7 @@ public class ProcessScheduling {
 	/**
 	 * the default input file
 	 */
-	public static final String DEFAULT_INPUT = "process_scheduling_input.txt ";
+	public static final String DEFAULT_INPUT_FILENAME = "process_scheduling_input.txt";
 
 	/**
 	 * Process object
@@ -48,7 +48,16 @@ public class ProcessScheduling {
 			return priority;
 		}
 
-		public void setPriority(int priority) {
+		/**
+		 * set the process priority; using synchronized is a bit superfluous here, but
+		 * for completeness we are taking into account that per term project description
+		 * setting priority can be performed at each logical time (i.e., in a separate
+		 * thread)
+		 *
+		 * @param priority
+		 *            the new priority
+		 */
+		public synchronized void setPriority(int priority) {
 			this.priority = priority;
 		}
 
@@ -101,14 +110,16 @@ public class ProcessScheduling {
 		}
 
 		/**
-		 * process list from file
+		 * Process list from file convenience static method. It assumes that each line
+		 * has 4 integers.
 		 *
 		 * @param fname
 		 *            filename
 		 * @return the process list
 		 * @throws IOException
+		 *             any error in file processing
 		 */
-		static ProcessList getProcessListFromFile(String fname) throws IOException {
+		public static ProcessList getProcessListFromFile(String fname) throws IOException {
 			try (var ps = Files.lines(Paths.get(fname))) {
 				// @formatter:off
 				return new ProcessList(ps.map(p -> p.split(" "))
@@ -160,6 +171,7 @@ public class ProcessScheduling {
 	 * Scheduler object
 	 */
 	static class Scheduler {
+		// default max wait time
 		public static int DEFAULT_MAX_WAIT_TIME = 30;
 
 		private int currentTime = 0;
@@ -173,7 +185,8 @@ public class ProcessScheduling {
 		/**
 		 * increments the scheduler's clock/time
 		 *
-		 * @param delta delta
+		 * @param delta
+		 *            delta
 		 */
 		private void incrementTime(int delta) {
 			currentTime += delta;
@@ -198,9 +211,12 @@ public class ProcessScheduling {
 		/**
 		 * The main constructor
 		 *
-		 * @param processes process list
-		 * @param maxWaitTime max wait time
-		 * @param eventHandler event handler (logging)
+		 * @param processes
+		 *            process list
+		 * @param maxWaitTime
+		 *            max wait time
+		 * @param eventHandler
+		 *            event handler (logging)
 		 */
 		public Scheduler(ProcessList processes, int maxWaitTime, Consumer<String> eventHandler) {
 			this.processes = processes;
@@ -212,10 +228,23 @@ public class ProcessScheduling {
 		/**
 		 * Convenience overloaded constructor with applied defaults
 		 *
-		 * @param processes the process list
+		 * @param processes
+		 *            the process list
 		 */
 		public Scheduler(ProcessList processes) {
 			this(processes, DEFAULT_MAX_WAIT_TIME, System.out::println);
+		}
+
+		/**
+		 * Convenience overloaded constructor with applied defaults
+		 *
+		 * @param processes
+		 *            the process list
+		 * @param maxWaitTime
+		 *            the max wait time
+		 */
+		public Scheduler(ProcessList processes, int maxWaitTime) {
+			this(processes, maxWaitTime, System.out::println);
 		}
 
 		/**
@@ -230,7 +259,8 @@ public class ProcessScheduling {
 		/**
 		 * changes the state of the scheduler
 		 *
-		 * @param running true/false
+		 * @param running
+		 *            true/false
 		 */
 		public void setRunning(boolean running) {
 			isRunning = running;
@@ -248,7 +278,8 @@ public class ProcessScheduling {
 		/**
 		 * increments total wait time
 		 *
-		 * @param time the time delta
+		 * @param time
+		 *            the time delta
 		 */
 		private void incTotalWaitTime(int time) {
 			totalWaitTime += time;
@@ -291,7 +322,7 @@ public class ProcessScheduling {
 	 *            command line args
 	 */
 	public static void main(String[] args) throws IOException {
-		String fname = args.length > 0 ? args[0] : DEFAULT_INPUT;
+		String fname = args.length > 0 ? args[0] : DEFAULT_INPUT_FILENAME;
 
 		var plist = ProcessList.getProcessListFromFile(fname);
 

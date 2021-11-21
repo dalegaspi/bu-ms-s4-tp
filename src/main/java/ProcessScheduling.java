@@ -29,12 +29,14 @@ public class ProcessScheduling {
 	 * Process object
 	 */
 	public static class Process {
+		public static int NOT_RUNNING = -1;
+
 		private final int id;
 		private int priority;
-		private final int arrival;
+		private final int arrivalTime;
 		private final int duration;
-		private float waitTime;
-		private int startTime;
+		private int waitTime;
+		private int runStartTime;
 
 		/**
 		 * Constructor to take array of ids to create the Process
@@ -48,18 +50,22 @@ public class ProcessScheduling {
 		/**
 		 * The main constructor
 		 *
-		 * @param id process ID
-		 * @param priority priority
-		 * @param duration duration
-		 * @param arrival arrival
+		 * @param id
+		 *            process ID
+		 * @param priority
+		 *            priority
+		 * @param duration
+		 *            duration
+		 * @param arrivalTime
+		 *            arrival time
 		 */
-		public Process(int id, int priority, int duration, int arrival) {
+		public Process(int id, int priority, int duration, int arrivalTime) {
 			this.id = id;
 			this.priority = priority;
-			this.arrival = arrival;
+			this.arrivalTime = arrivalTime;
 			this.duration = duration;
 			this.waitTime = 0;
-			this.startTime = 0;
+			this.runStartTime = NOT_RUNNING;
 		}
 
 		public int getId() {
@@ -83,19 +89,19 @@ public class ProcessScheduling {
 			this.priority = priority;
 		}
 
-		public int getArrival() {
-			return arrival;
+		public int getArrivalTime() {
+			return arrivalTime;
 		}
 
 		public int getDuration() {
 			return duration;
 		}
 
-		public float getWaitTime() {
+		public int getWaitTime() {
 			return waitTime;
 		}
 
-		public void setWaitTime(float waitTime) {
+		public void setWaitTime(int waitTime) {
 			this.waitTime = waitTime;
 		}
 
@@ -114,23 +120,27 @@ public class ProcessScheduling {
 		 * @return the comparator
 		 */
 		public static Comparator<Process> getArrivalComparator() {
-			return Comparator.comparingInt(Process::getArrival);
+			return Comparator.comparingInt(Process::getArrivalTime);
 		}
 
-		public int getStartTime() {
-			return startTime;
+		public int getRunStartTime() {
+			return runStartTime;
 		}
 
-		public void setStartTime(int startTime) {
-			this.startTime = startTime;
+		public void setRunStartTime(int runStartTime) {
+			this.runStartTime = runStartTime;
+		}
+
+		public void stop() {
+			this.runStartTime = NOT_RUNNING;
 		}
 	}
 
 	/**
 	 * Process list
 	 *
-	 * subclass ArrayDeque to be able to define a constructor that takes an unsorted list
-	 * and sort it by arrival date
+	 * subclass ArrayDeque to be able to define a constructor that takes an unsorted
+	 * list and sort it by arrival date
 	 *
 	 * @see java.util.ArrayDeque
 	 */
@@ -191,7 +201,7 @@ public class ProcessScheduling {
 		@Override
 		public String toString() {
 			return this.stream().map(p -> String.format("Id = %d, priority = %d, duration = %d, arrival = %d",
-					p.getId(), p.getPriority(), p.getDuration(), p.getArrival())).collect(Collectors.joining("\n"));
+					p.getId(), p.getPriority(), p.getDuration(), p.getArrivalTime())).collect(Collectors.joining("\n"));
 		}
 	}
 
@@ -201,7 +211,6 @@ public class ProcessScheduling {
 	static class Scheduler {
 		// default max wait time
 		public static int DEFAULT_MAX_WAIT_TIME = 30;
-		public static int NOT_RUNNING = -1;
 
 		private int currentTime = 0;
 		private Optional<Process> runningProcess = Optional.empty();
@@ -217,14 +226,16 @@ public class ProcessScheduling {
 		 * @return a new priority queue
 		 */
 		public static PriorityQueue<Process> createPriorityQueue() {
-			return new PriorityQueue<>(Comparator.comparingInt(Process::getPriority));
+			return new PriorityQueue<>(Process.getPriorityComparator());
 		}
 
 		/**
 		 * reinsert into priority queue; usually for p that changed priority
 		 *
-		 * @param queue the priority queue
-		 * @param p the process to reinsert
+		 * @param queue
+		 *            the priority queue
+		 * @param p
+		 *            the process to reinsert
 		 * @return
 		 */
 		public static PriorityQueue<Process> reinsertIntoPriorityQueue(PriorityQueue<Process> queue, Process p) {
@@ -319,7 +330,7 @@ public class ProcessScheduling {
 		 *
 		 */
 		public void runProcess(Process process) {
-			process.setStartTime(getCurrentTime());
+			process.setRunStartTime(getCurrentTime());
 			runningProcess = Optional.of(process);
 		}
 
@@ -328,6 +339,17 @@ public class ProcessScheduling {
 		 */
 		public void stopRunning() {
 			runningProcess = Optional.empty();
+		}
+
+		/**
+		 * if the scheduler is running a process, check if it's finished: currentTime -
+		 * p.startTime >= p.getDuration
+		 *
+		 * @return true if running process is finished
+		 */
+		public boolean isRunningProcessFinished() {
+			assert isRunning();
+			return runningProcess.map(p -> getCurrentTime() - p.getRunStartTime() >= p.getDuration()).orElse(false);
 		}
 
 		/**
@@ -359,6 +381,17 @@ public class ProcessScheduling {
 		}
 
 		/**
+		 * Calculation of a wait time of a process
+		 *
+		 * @param timeOfRemovalFromQueue time removed from queue
+		 * @param p the process
+		 * @return the wait time for the process
+		 */
+		public static int calculateWaitTime(int timeOfRemovalFromQueue, Process p) {
+			return timeOfRemovalFromQueue - p.getArrivalTime();
+		}
+
+		/**
 		 * the max wait time
 		 *
 		 * @return max wait time
@@ -370,8 +403,10 @@ public class ProcessScheduling {
 		/**
 		 * handler by logging, it's like printf
 		 *
-		 * @param format string format
-		 * @param args args
+		 * @param format
+		 *            string format
+		 * @param args
+		 *            args
 		 */
 		private void log(String format, Object... args) {
 			eventHandler.accept(String.format(format, args));
@@ -380,16 +415,16 @@ public class ProcessScheduling {
 		/**
 		 * adjust process priorities based on max wait times and current time
 		 */
-		private void adjustProcessPriorities() {
+		private void adjustProcessPrioritiesInQueue() {
 			if (!processes.isEmpty()) {
 
 			}
 		}
 
 		/**
-		 * main loop
+		 * The scheduler simulation
 		 */
-		public void loop() {
+		public void simulate() {
 			log("%nMaximum wait time = %d%n", getMaxWaitTime());
 			reset();
 			stopRunning();
@@ -398,24 +433,32 @@ public class ProcessScheduling {
 				// get the top process without removing
 				var top = processes.peek();
 
-				if (top.getArrival() <= getCurrentTime()) {
+				if (top.getArrivalTime() <= getCurrentTime()) {
 					// remove from list then add to priority queue
 					pqueue.add(processes.remove());
 				}
 
 				if (!pqueue.isEmpty() && !isRunning()) {
+					// if we're not running anything, run something
 					var p = pqueue.remove();
+
+					// sets running process;
 					runProcess(p);
 				}
 
-				adjustProcessPriorities();
+				if (isRunning() && isRunningProcessFinished()) {
+					stopRunning();
+					adjustProcessPrioritiesInQueue();
+				}
+
 				incrementCurrentTime();
 			}
 
 			while (!pqueue.isEmpty()) {
 				var p = pqueue.remove();
 				// run process
-				adjustProcessPriorities();
+				adjustProcessPrioritiesInQueue();
+				incrementCurrentTime();
 			}
 		}
 	}
@@ -449,9 +492,7 @@ public class ProcessScheduling {
 	public static void testPriorityQueueBehavior() {
 		var pq = Scheduler.createPriorityQueue();
 
-		pq.addAll(IntStream.rangeClosed(1, 10)
-				.mapToObj(i -> new Process(i, i, i, i))
-				.collect(Collectors.toList()));
+		pq.addAll(IntStream.rangeClosed(1, 10).mapToObj(i -> new Process(i, i, i, i)).collect(Collectors.toList()));
 
 		var pl = new ArrayList<Process>();
 
@@ -489,7 +530,7 @@ public class ProcessScheduling {
 		Logger.log(plist.toString());
 
 		var scheduler = new Scheduler(plist);
-		scheduler.loop();
+		scheduler.simulate();
 
 		Logger.log("Total wait time = %f", scheduler.getTotalWaitTime());
 		Logger.log("Average wait time = %f", scheduler.getAverageWaitTime());

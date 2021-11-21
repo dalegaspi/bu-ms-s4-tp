@@ -17,14 +17,14 @@ The `Process` class has all the properties that represents the processes to be r
 - ID
 - Priority
 - Duration
-- Arrival
+- Arrival Time
 
 Getters and/or Setters are defined in the fields of class where applicable and marked `final` where appropriate.
 
-It also has the following information:
+It also has the following features:
 
-- Keeping track of its wait time.  This is used for the final computation of the average wait time.
-- Keeping track of its execution start time, used by the `Scheduler` for tracking time when it is run.
+- Means to keep track of its wait time.  This is used for the final computation of the average wait time.
+- Means to keep track of its execution start time, used by the `Scheduler` for tracking time when it is run and be able to determin if finished (in conjunction with the duration)
 
 ### The Data Structure for the Process List
 
@@ -121,9 +121,9 @@ java ProcessScheduling input_file.txt output_file.txt
 ### Priority Queue and Modifying Priorities
 One of the notable thing that I have learned is that PriorityQueue only evaluates the priority comparison using `Comparator<T>::compare` when adding to queue, and not from removing.  This kind of makes sense since this essentially makes the class efficient since it won't have to find it using the comparator when removing.  This is highly efficient when the element priorities are not modified, but adds overhead when the priorities are modified since you will essentially have to remove the element whose priority is modified then re-insert in the queue.
 
-This behavior can be seen in the `ProcessScheduling.testPriorityQueueBehavior` method.
+This behavior can be tested in the `ProcessScheduling.testPriorityQueueBehavior` method.
 
 ### Conclusion
-The extensive generics provided out of the box by Java is almost always taken for grated nowadays (I'm guilty of such) and this project has certainly helped me appreciate them more, especially with the `PriorityQueue` which I should probably use more often with my projects.
+The extensive generics provided out of the box by Java is almost always taken for grated nowadays (I'm guilty of such) and this project has certainly helped me better understand and appreciate them more, especially with the `PriorityQueue` which I should probably use more often with my projects when applicable.
 
 

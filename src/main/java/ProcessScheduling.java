@@ -6,6 +6,7 @@ import java.nio.file.Paths;
 import java.util.*;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 
 /**
  * Process scheduler implementation
@@ -33,17 +34,32 @@ public class ProcessScheduling {
 		private final int arrival;
 		private final int duration;
 		private float waitTime;
+		private int startTime;
 
+		/**
+		 * Constructor to take array of ids to create the Process
+		 *
+		 * @param ids
+		 */
 		public Process(Integer... ids) {
 			this(ids[0], ids[1], ids[2], ids[3]);
 		}
 
+		/**
+		 * The main constructor
+		 *
+		 * @param id process ID
+		 * @param priority priority
+		 * @param duration duration
+		 * @param arrival arrival
+		 */
 		public Process(int id, int priority, int duration, int arrival) {
 			this.id = id;
 			this.priority = priority;
 			this.arrival = arrival;
 			this.duration = duration;
 			this.waitTime = 0;
+			this.startTime = 0;
 		}
 
 		public int getId() {
@@ -86,39 +102,60 @@ public class ProcessScheduling {
 		/**
 		 * The comparator for process using the priority field
 		 *
-		 * @return
+		 * @return the comparator
 		 */
 		public static Comparator<Process> getPriorityComparator() {
 			return Comparator.comparingInt(Process::getPriority);
 		}
 
+		/**
+		 * The comparator for process using the arrival field
+		 *
+		 * @return the comparator
+		 */
 		public static Comparator<Process> getArrivalComparator() {
 			return Comparator.comparingInt(Process::getArrival);
+		}
+
+		public int getStartTime() {
+			return startTime;
+		}
+
+		public void setStartTime(int startTime) {
+			this.startTime = startTime;
 		}
 	}
 
 	/**
 	 * Process list
 	 *
-	 * we are creating a new class to abstract some process list operations that
-	 * differentiate between list implementations for simplified access and less
-	 * prone to bugs. This also allows us to change the collection implementation as
-	 * we see fit without changing the rest of the code that uses the list
+	 * subclass ArrayDeque to be able to define a constructor that takes an unsorted list
+	 * and sort it by arrival date
+	 *
+	 * @see java.util.ArrayDeque
 	 */
-	static class ProcessList  {
-		private Deque<Process> list;
+	static class ProcessList extends ArrayDeque<Process> {
+
 		private int originalListSize;
+
+		/**
+		 * returns a new sorted Process list based arrival date on the given list
+		 *
+		 * @param processes
+		 * @return
+		 */
+		private static Collection<Process> sortListByArrival(Collection<Process> processes) {
+			return processes.stream().sorted(Process.getArrivalComparator()).collect(Collectors.toList());
+		}
 
 		/**
 		 * private constructor; clones the list
 		 *
 		 * @param processes
 		 */
-		private ProcessList(List<Process> processes) {
+		private ProcessList(Collection<Process> processes) {
 			// sort the list by arrival (asc) then assign to the internal collection
-			this.list = processes.stream()
-					.sorted(Process.getArrivalComparator())
-					.collect(Collectors.toCollection(ArrayDeque::new));
+			super(sortListByArrival(processes));
 			this.originalListSize = processes.size();
 		}
 
@@ -146,55 +183,15 @@ public class ProcessScheduling {
 			}
 		}
 
-		/**
-		 * returns iterator for the process list
-		 *
-		 * @return the iterator
-		 */
-		public Iterator<Process> iterator() {
-			return list.iterator();
-		}
-
-		/**
-		 * is it empty?
-		 *
-		 * @return true if empty
-		 */
-		public boolean isEmpty() {
-			return this.list.isEmpty();
-		}
-
-		/**
-		 * the list is modified over time, so we save the original size
-		 *
-		 * @return the original list size
-		 */
 		public int getOriginalListSize() {
+			assert originalListSize > 0;
 			return this.originalListSize;
 		}
 
 		@Override
 		public String toString() {
-			return list.stream().map(p -> String.format("Id = %d, priority = %d, duration = %d, arrival = %d",
+			return this.stream().map(p -> String.format("Id = %d, priority = %d, duration = %d, arrival = %d",
 					p.getId(), p.getPriority(), p.getDuration(), p.getArrival())).collect(Collectors.joining("\n"));
-		}
-
-		/**
-		 * peek top of list
-		 *
-		 * @return the process at head of list
-		 */
-		Process peek() {
-			return list.peek();
-		}
-
-		/**
-		 * remove from top of list
-		 *
-		 * @return the process at head of list
-		 */
-		Process remove() {
-			return list.remove();
 		}
 	}
 
@@ -207,7 +204,7 @@ public class ProcessScheduling {
 		public static int NOT_RUNNING = -1;
 
 		private int currentTime = 0;
-		private int setRunningTime = 0;
+		private Optional<Process> runningProcess = Optional.empty();
 		private PriorityQueue<Process> pqueue;
 		private float totalWaitTime;
 		private ProcessList processes;
@@ -215,12 +212,34 @@ public class ProcessScheduling {
 		private Consumer<String> eventHandler;
 
 		/**
+		 * creates a priority queue
+		 *
+		 * @return a new priority queue
+		 */
+		public static PriorityQueue<Process> createPriorityQueue() {
+			return new PriorityQueue<>(Comparator.comparingInt(Process::getPriority));
+		}
+
+		/**
+		 * reinsert into priority queue; usually for p that changed priority
+		 *
+		 * @param queue the priority queue
+		 * @param p the process to reinsert
+		 * @return
+		 */
+		public static PriorityQueue<Process> reinsertIntoPriorityQueue(PriorityQueue<Process> queue, Process p) {
+			queue.remove(p);
+			queue.add(p);
+			return queue;
+		}
+
+		/**
 		 * reset times and other related stuff to throught he whole thing again
 		 */
 		public void reset() {
 			totalWaitTime = 0;
 			currentTime = 0;
-			this.pqueue = new PriorityQueue<>(processes.getOriginalListSize(), Process.getPriorityComparator());
+			this.pqueue = createPriorityQueue();
 		}
 
 		/**
@@ -288,30 +307,27 @@ public class ProcessScheduling {
 		}
 
 		/**
-		 * The running flag is tied to the current time...since the current time >= 0
-		 * we can just use setRunning as an int to save the start running time and
-		 * this doubles as the flag...if setRunningTime > -1, it means that the
-		 * scheduler is running
 		 *
 		 * @return true if running
 		 */
 		public boolean isRunning() {
-			return setRunningTime > NOT_RUNNING;
+			return runningProcess.isPresent();
 		}
 
 		/**
 		 * changes the run state of the scheduler based on current time
 		 *
 		 */
-		public void startRunning() {
-			setRunningTime = getCurrentTime();
+		public void runProcess(Process process) {
+			process.setStartTime(getCurrentTime());
+			runningProcess = Optional.of(process);
 		}
 
 		/**
 		 * stop run state of scheduler based on current time
 		 */
 		public void stopRunning() {
-			setRunningTime = NOT_RUNNING;
+			runningProcess = Optional.empty();
 		}
 
 		/**
@@ -388,7 +404,8 @@ public class ProcessScheduling {
 				}
 
 				if (!pqueue.isEmpty() && !isRunning()) {
-					// startRunning();
+					var p = pqueue.remove();
+					runProcess(p);
 				}
 
 				adjustProcessPriorities();
@@ -398,6 +415,7 @@ public class ProcessScheduling {
 			while (!pqueue.isEmpty()) {
 				var p = pqueue.remove();
 				// run process
+				adjustProcessPriorities();
 			}
 		}
 	}
@@ -426,12 +444,43 @@ public class ProcessScheduling {
 	}
 
 	/**
+	 * This is just a method to test priority queue behavior
+	 */
+	public static void testPriorityQueueBehavior() {
+		var pq = Scheduler.createPriorityQueue();
+
+		pq.addAll(IntStream.rangeClosed(1, 10)
+				.mapToObj(i -> new Process(i, i, i, i))
+				.collect(Collectors.toList()));
+
+		var pl = new ArrayList<Process>();
+
+		for (int i = 0; i < 5; i++)
+			pl.add(pq.remove());
+
+		// modify the priority of the top one
+		var modifiedPriority = pq.peek();
+		modifiedPriority.setPriority(100000);
+
+		Scheduler.reinsertIntoPriorityQueue(pq, modifiedPriority);
+
+		// reinsert the rest
+		while (!pq.isEmpty())
+			pl.add(pq.remove());
+
+		// assert that the modified priority is the last one
+		assert pl.get(pl.size() - 1).getId() == modifiedPriority.getId();
+	}
+
+	/**
 	 * entry point
 	 *
 	 * @param args
 	 *            command line args
 	 */
 	public static void main(String[] args) throws IOException {
+		// testPriorityQueueBehavior();
+
 		String input_fname = args.length > 0 ? args[0] : DEFAULT_INPUT_FILENAME;
 		String output_fname = args.length > 1 ? args[1] : DEFAUL_OUTPUT_FILENAME;
 		Logger.init(output_fname);

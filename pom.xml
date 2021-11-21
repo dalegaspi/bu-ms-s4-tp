@@ -84,7 +84,7 @@
                                    <fileset dir="${basedir}/doc" includes="*.pdf"/>
                                </copy>
                                <!-- copy pertinent source files from /src to /submit folder then zip -->
-                               <copy file="${project.basedir}/process_scheduling_input.txt " todir="${project.basedir}/submit" />
+                               <copy file="${project.basedir}/process_scheduling_input.txt" todir="${project.basedir}/submit" />
                                <copy todir="${project.basedir}/submit">
                                    <fileset dir="${build.sourceDirectory}" includes="*.java"/>
                                </copy>

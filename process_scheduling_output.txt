@@ -1,0 +1,15 @@
+Id = 1, priority = 4, duration = 25, arrival = 10
+Id = 2, priority = 3, duration = 15, arrival = 17
+Id = 3, priority = 1, duration = 17, arrival = 26
+Id = 4, priority = 9, duration = 17, arrival = 30
+Id = 5, priority = 10, duration = 9, arrival = 40
+Id = 6, priority = 6, duration = 14, arrival = 47
+Id = 7, priority = 7, duration = 18, arrival = 52
+Id = 8, priority = 5, duration = 18, arrival = 70
+Id = 9, priority = 2, duration = 16, arrival = 93
+Id = 10, priority = 8, duration = 20, arrival = 125
+
+Maximum wait time = 30
+
+Total wait time = 0.000000
+Average wait time = 0.000000

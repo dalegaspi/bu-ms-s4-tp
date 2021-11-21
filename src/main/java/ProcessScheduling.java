@@ -1,4 +1,6 @@
+import java.io.FileWriter;
 import java.io.IOException;
+import java.io.PrintWriter;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.util.*;
@@ -10,17 +12,17 @@ import java.util.stream.Collectors;
  *
  * All the required classes/interfaces are in this file for simplicity.
  *
- * Tested to work with Java 11. It uses some features beyond Java 8 like type
- * inference.
+ * Tested to work with Java 11.
  *
  * @author dlegaspi@bu.edu
  */
 public class ProcessScheduling {
 
 	/**
-	 * the default input file
+	 * the defaults
 	 */
 	public static final String DEFAULT_INPUT_FILENAME = "process_scheduling_input.txt";
+	public static final String DEFAUL_OUTPUT_FILENAME = "process_scheduling_output.txt";
 
 	/**
 	 * Process object
@@ -31,6 +33,10 @@ public class ProcessScheduling {
 		private final int arrival;
 		private final int duration;
 		private float waitTime;
+
+		public Process(Integer... ids) {
+			this(ids[0], ids[1], ids[2], ids[3]);
+		}
 
 		public Process(int id, int priority, int duration, int arrival) {
 			this.id = id;
@@ -82,8 +88,12 @@ public class ProcessScheduling {
 		 *
 		 * @return
 		 */
-		public static Comparator<Process> getComparator() {
+		public static Comparator<Process> getPriorityComparator() {
 			return Comparator.comparingInt(Process::getPriority);
+		}
+
+		public static Comparator<Process> getArrivalComparator() {
+			return Comparator.comparingInt(Process::getArrival);
 		}
 	}
 
@@ -95,8 +105,8 @@ public class ProcessScheduling {
 	 * prone to bugs. This also allows us to change the collection implementation as
 	 * we see fit without changing the rest of the code that uses the list
 	 */
-	static class ProcessList {
-		private List<Process> list;
+	static class ProcessList  {
+		private Deque<Process> list;
 		private int originalListSize;
 
 		/**
@@ -105,7 +115,10 @@ public class ProcessScheduling {
 		 * @param processes
 		 */
 		private ProcessList(List<Process> processes) {
-			this.list = new ArrayList<>(processes);
+			// sort the list by arrival (asc) then assign to the internal collection
+			this.list = processes.stream()
+					.sorted(Process.getArrivalComparator())
+					.collect(Collectors.toCollection(ArrayDeque::new));
 			this.originalListSize = processes.size();
 		}
 
@@ -127,7 +140,7 @@ public class ProcessScheduling {
 								.map(Integer::valueOf)
 								.collect(Collectors.toList())
 								.toArray(new Integer[4]))
-						.map(ints -> new Process(ints[0], ints[1], ints[2], ints[3]))
+						.map(Process::new)
 						.collect(Collectors.toList()));
 				// @formatter:on
 			}
@@ -148,7 +161,7 @@ public class ProcessScheduling {
 		 * @return true if empty
 		 */
 		public boolean isEmpty() {
-			return this.list.size() == 0;
+			return this.list.isEmpty();
 		}
 
 		/**
@@ -165,6 +178,24 @@ public class ProcessScheduling {
 			return list.stream().map(p -> String.format("Id = %d, priority = %d, duration = %d, arrival = %d",
 					p.getId(), p.getPriority(), p.getDuration(), p.getArrival())).collect(Collectors.joining("\n"));
 		}
+
+		/**
+		 * peek top of list
+		 *
+		 * @return the process at head of list
+		 */
+		Process peek() {
+			return list.peek();
+		}
+
+		/**
+		 * remove from top of list
+		 *
+		 * @return the process at head of list
+		 */
+		Process remove() {
+			return list.remove();
+		}
 	}
 
 	/**
@@ -173,14 +204,24 @@ public class ProcessScheduling {
 	static class Scheduler {
 		// default max wait time
 		public static int DEFAULT_MAX_WAIT_TIME = 30;
+		public static int NOT_RUNNING = -1;
 
 		private int currentTime = 0;
-		private boolean isRunning = false;
-		private PriorityQueue<Process> queue;
+		private int setRunningTime = 0;
+		private PriorityQueue<Process> pqueue;
 		private float totalWaitTime;
 		private ProcessList processes;
 		private final int maxWaitTime;
 		private Consumer<String> eventHandler;
+
+		/**
+		 * reset times and other related stuff to throught he whole thing again
+		 */
+		public void reset() {
+			totalWaitTime = 0;
+			currentTime = 0;
+			this.pqueue = new PriorityQueue<>(processes.getOriginalListSize(), Process.getPriorityComparator());
+		}
 
 		/**
 		 * increments the scheduler's clock/time
@@ -188,15 +229,15 @@ public class ProcessScheduling {
 		 * @param delta
 		 *            delta
 		 */
-		private void incrementTime(int delta) {
+		private void incrementCurrentTime(int delta) {
 			currentTime += delta;
 		}
 
 		/**
 		 * Overload to increment time by 1 unit
 		 */
-		private void incrementTime() {
-			incrementTime(1);
+		private void incrementCurrentTime() {
+			incrementCurrentTime(1);
 		}
 
 		/**
@@ -221,7 +262,6 @@ public class ProcessScheduling {
 		public Scheduler(ProcessList processes, int maxWaitTime, Consumer<String> eventHandler) {
 			this.processes = processes;
 			this.maxWaitTime = maxWaitTime;
-			this.queue = new PriorityQueue<>(processes.getOriginalListSize(), Process.getComparator());
 			this.eventHandler = eventHandler;
 		}
 
@@ -232,7 +272,7 @@ public class ProcessScheduling {
 		 *            the process list
 		 */
 		public Scheduler(ProcessList processes) {
-			this(processes, DEFAULT_MAX_WAIT_TIME, System.out::println);
+			this(processes, DEFAULT_MAX_WAIT_TIME, Logger::log);
 		}
 
 		/**
@@ -244,26 +284,34 @@ public class ProcessScheduling {
 		 *            the max wait time
 		 */
 		public Scheduler(ProcessList processes, int maxWaitTime) {
-			this(processes, maxWaitTime, System.out::println);
+			this(processes, maxWaitTime, Logger::log);
 		}
 
 		/**
-		 * is it running?
+		 * The running flag is tied to the current time...since the current time >= 0
+		 * we can just use setRunning as an int to save the start running time and
+		 * this doubles as the flag...if setRunningTime > -1, it means that the
+		 * scheduler is running
 		 *
 		 * @return true if running
 		 */
 		public boolean isRunning() {
-			return isRunning;
+			return setRunningTime > NOT_RUNNING;
 		}
 
 		/**
-		 * changes the state of the scheduler
+		 * changes the run state of the scheduler based on current time
 		 *
-		 * @param running
-		 *            true/false
 		 */
-		public void setRunning(boolean running) {
-			isRunning = running;
+		public void startRunning() {
+			setRunningTime = getCurrentTime();
+		}
+
+		/**
+		 * stop run state of scheduler based on current time
+		 */
+		public void stopRunning() {
+			setRunningTime = NOT_RUNNING;
 		}
 
 		/**
@@ -303,8 +351,23 @@ public class ProcessScheduling {
 			return maxWaitTime;
 		}
 
+		/**
+		 * handler by logging, it's like printf
+		 *
+		 * @param format string format
+		 * @param args args
+		 */
 		private void log(String format, Object... args) {
 			eventHandler.accept(String.format(format, args));
+		}
+
+		/**
+		 * adjust process priorities based on max wait times and current time
+		 */
+		private void adjustProcessPriorities() {
+			if (!processes.isEmpty()) {
+
+			}
 		}
 
 		/**
@@ -312,6 +375,53 @@ public class ProcessScheduling {
 		 */
 		public void loop() {
 			log("%nMaximum wait time = %d%n", getMaxWaitTime());
+			reset();
+			stopRunning();
+
+			while (!processes.isEmpty()) {
+				// get the top process without removing
+				var top = processes.peek();
+
+				if (top.getArrival() <= getCurrentTime()) {
+					// remove from list then add to priority queue
+					pqueue.add(processes.remove());
+				}
+
+				if (!pqueue.isEmpty() && !isRunning()) {
+					// startRunning();
+				}
+
+				adjustProcessPriorities();
+				incrementCurrentTime();
+			}
+
+			while (!pqueue.isEmpty()) {
+				var p = pqueue.remove();
+				// run process
+			}
+		}
+	}
+
+	/**
+	 * Poor man's java.util.logging.Logger
+	 */
+	public static class Logger {
+		private static Logger instance;
+
+		private PrintWriter output;
+		private Logger(String fname) throws IOException {
+			output = new PrintWriter(new FileWriter(fname), true);
+		}
+
+		public static void init(String fname) throws IOException {
+			instance = new Logger(fname);
+		}
+
+		public static void log(String format, Object... args) {
+			System.out.printf(format + "%n", args);
+
+			if (instance != null)
+				instance.output.println(String.format(format, args));
 		}
 	}
 
@@ -322,15 +432,17 @@ public class ProcessScheduling {
 	 *            command line args
 	 */
 	public static void main(String[] args) throws IOException {
-		String fname = args.length > 0 ? args[0] : DEFAULT_INPUT_FILENAME;
+		String input_fname = args.length > 0 ? args[0] : DEFAULT_INPUT_FILENAME;
+		String output_fname = args.length > 1 ? args[1] : DEFAUL_OUTPUT_FILENAME;
+		Logger.init(output_fname);
 
-		var plist = ProcessList.getProcessListFromFile(fname);
+		var plist = ProcessList.getProcessListFromFile(input_fname);
+		Logger.log(plist.toString());
 
-		System.out.println(plist);
 		var scheduler = new Scheduler(plist);
-
-		// run all processes
-
 		scheduler.loop();
+
+		Logger.log("Total wait time = %f", scheduler.getTotalWaitTime());
+		Logger.log("Average wait time = %f", scheduler.getAverageWaitTime());
 	}
 }

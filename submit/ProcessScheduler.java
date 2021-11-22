@@ -20,8 +20,8 @@ class ProcessScheduler {
 
 	private int currentTime = 0;
 	private Optional<Process> runningProcess = Optional.empty();
-	private PriorityQueue<Process> pqueue;
-	private final ProcessList processes;
+	private PriorityQueue<Process> Q;
+	private final ProcessList D;
 	private final int maxWaitTime;
 	private int totalWaitTime = 0;
 	private final Consumer<String> eventHandler;
@@ -54,7 +54,7 @@ class ProcessScheduler {
 	public void reset() {
 		currentTime = 0;
 		totalWaitTime = 0;
-		pqueue = createPriorityQueue();
+		Q = createPriorityQueue();
 		runningProcess = Optional.empty();
 	}
 
@@ -95,7 +95,7 @@ class ProcessScheduler {
 	 *            event handler (logging)
 	 */
 	public ProcessScheduler(ProcessList processes, int maxWaitTime, Consumer<String> eventHandler) {
-		this.processes = processes;
+		this.D = processes;
 		this.maxWaitTime = maxWaitTime;
 		this.eventHandler = eventHandler;
 	}
@@ -191,7 +191,7 @@ class ProcessScheduler {
 	 * @return the ave wait time
 	 */
 	public float getAverageWaitTime() {
-		return getTotalWaitTime() / processes.getOriginalListSize();
+		return getTotalWaitTime() / D.getOriginalListSize();
 	}
 
 	/**
@@ -233,9 +233,9 @@ class ProcessScheduler {
 	 */
 	private void adjustAndReportProcessPrioritiesInQueue() {
 		log("%nUpdate priority:");
-		if (!pqueue.isEmpty()) {
+		if (!Q.isEmpty()) {
 			// determine the processes that have been waiting too long
-			var processesToUpdate = pqueue.stream()
+			var processesToUpdate = Q.stream()
 					// process is waiting too long if (currentTime - process.arrivalTime) >=
 					// maxWaitTime)
 					.filter(p -> calculateWaitTime(getCurrentTime(), p) > getMaxWaitTime())
@@ -253,7 +253,7 @@ class ProcessScheduler {
 				log("PID = %d, new priority = %d", p.getId(), p.getPriority());
 
 				// reinsert in the queue as PriorityQueue only recomputes on enqueue
-				reinsertIntoPriorityQueue(pqueue, p);
+				reinsertIntoPriorityQueue(Q, p);
 			});
 		}
 		log("");
@@ -286,7 +286,7 @@ class ProcessScheduler {
 		assert !isRunning();
 
 		// if we're not running anything, run something
-		var processToRun = pqueue.remove();
+		var processToRun = Q.remove();
 
 		// calculate and save the process wait time
 		var waitTime = calculateWaitTime(getCurrentTime(), processToRun);
@@ -315,19 +315,19 @@ class ProcessScheduler {
 		log("%nMaximum wait time = %d%n", getMaxWaitTime());
 		reset();
 
-		while (!processes.isEmpty()) {
+		while (!D.isEmpty()) {
 			// get the top process without removing
-			var top = processes.peek();
+			var top = D.peek();
 
 			// remove from list then add to priority queue
 			if (top.getArrivalTime() <= getCurrentTime())
-				pqueue.add(processes.remove());
+				Q.add(D.remove());
 
 			// if pqueue is not empty run one process if not running
-			if (!pqueue.isEmpty() && !isRunning())
+			if (!Q.isEmpty() && !isRunning())
 				runOneProcess();
 
-			if (processes.isEmpty())
+			if (D.isEmpty())
 				log("%nD becomes empty at time at time %d%n", getCurrentTime());
 
 			if (isRunning() && isRunningProcessFinished())
@@ -337,7 +337,7 @@ class ProcessScheduler {
 		}
 
 		// run the rest of the processes that are still in the queue
-		while (!pqueue.isEmpty()) {
+		while (!Q.isEmpty()) {
 			// run one process if not running
 			if (!isRunning())
 				runOneProcess();

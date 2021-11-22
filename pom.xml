@@ -75,6 +75,8 @@
                                <delete file="${project.basedir}/Legaspi_Dexter_*.zip" />
                                <!-- create the pdf from md then copy to /submit folder -->
                                <exec dir="${project.basedir}/doc" executable="pandoc">
+                                   <arg value="-V" />
+                                   <arg value="colorlinks=true" />
                                    <arg value="-o"/>
                                    <arg value="project_documentation.pdf"/>
                                    <arg value="project_documentation.md"/>

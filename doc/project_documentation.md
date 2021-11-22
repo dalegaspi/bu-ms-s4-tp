@@ -5,7 +5,7 @@ dlegaspi@bu.edu
 
 ## Overview
 
-The implementation leans heavily on the use of the new features Java 11 (like lambdas and type inference) but still relies on the basic Generic types to highlight what needs to be learned in this term project.
+The implementation leans heavily on the use of the new features Java 11 (like lambdas and type inference) for code brevity/conciseness and increased readability but still relies on the basic Generic types to highlight what needs to be learned in this term project.
 
 ## Implementation
 
@@ -26,16 +26,16 @@ It also has the following features:
 - Means to keep track of its wait time.  This is used for the final computation of the average wait time.
 - Means to keep track of its execution start time, used by the `Scheduler` for tracking time when it is run and be able to determin if finished (in conjunction with the duration)
 
-### The Data Structure for the Process List
+### Process List
 
 The `ProcessList` class extends the ArrayDeque<T> generic instead of using it directly to add the following behaviors/features to the subclass:
 
-1. Be able to take in a `Collection<Process>` as a parameter to the constructor.  This allows me to do whatever to the list internally before adding to the queue.  In this case, it sorts (creates a sorted copy) the list by arrival time before adding them.  The sample having the data conveniently sorted by arrival date, but this may not be always the case.
-2. Since the list is modified along the way, it would be convenient to add a property that represents the original list size/count for computing the average wait time.  While this size can be kept track somewhere else in the code, but that feels wrong since size is a property of the list.
+1. Be able to take in a `Collection<Process>` as a parameter to the constructor.  This allows me to do whatever to the list internally before adding to the queue.  In this case, it sorts (creates a sorted copy) the list by arrival time before adding them.  The sample happens to have the data conveniently sorted by arrival date, but this may not be always the case.
+2. Since the list is modified along the way, this class has property that represents the original list size/count for computing the average wait time in `ProcessScheduler`. 
 3. Add a convenience creation function `getProcessListFromFile` that takes in a filename and generates the `ProcessList` instance.  This allows me to make the constructor private because there is no need for it to be public, less risk of bugs for misusing the constructor.
-4. Override the toString() method to return the formatted list of processes for logging.
+4. Override the `Object::toString` method to return the formatted list of processes for logging.
 
-### Reading the Input File
+#### Reading the Input File
 
 The `ProcessList.getProcessListFromFile` takes full advantage of Java 8 streams to read the file and converts it to a `List<Process>` to eventually create a `ProcessList`:
 
@@ -51,9 +51,15 @@ ps.map(p -> p.split(" "))
 
 The constructs reads every line and converts it into array of Integer of size 4, then creates the `Process` instance (for each line processed) using the `Process(Integer... ids)` constructor.  The list is then passed as paramter for the `ProcessList` constructor to create the final list.
 
-### ProcessScheduler
+### Process Scheduler
 
-This is the class that ties it all together, the actual object that represents the scheduler.  This has the `simulate` method that loads the processes metadata from file to create the `Process` objects, create the `ProcessList` and then creates the internal `PriorityQueue` and simulate the process scheduling based on the provided data.
+`ProcessScheduler` is the class that ties it all together, the actual object that represents the scheduler.  This has the `simulate` method that loads the processes metadata from file to create the `Process` objects, create the `ProcessList` and then creates the internal `PriorityQueue` and simulate the process scheduling based on the provided data.
+
+The following are the main tasks that the scheduler does:
+- Moves the processes from the ProcessList to the PriorityQueue depending on current time and process arrival time
+- Moves the process to queue depending on arrival time and current time and update the process wait time accordingly
+- Keeps track of the running total of the wait times
+- Computes the average wait times on demand
 
 ### Custom Comparator and the Priority Queue
 
@@ -110,7 +116,7 @@ This solution is using the Java 8's `comparingInt` static method to create the p
 
 ### Logging
 
-A class `Logger` is defined to be able to output to a file `process_scheduling_output.txt` and at the same time log to standard output (the screen).  This sort of acts like the logging classes that comes with `java.util.logging` package but much, much simplified by using a [FileWriter](https://docs.oracle.com/javase/8/docs/api/java/io/FileWriter.html) and [PrintWriter](https://docs.oracle.com/javase/8/docs/api/java/io/PrintWriter.html).
+A static class `Logger` is defined to be able to output to a file `process_scheduling_output.txt` and at the same time log to standard output (the screen).  This sort of acts like the logging classes that comes with `java.util.logging` package but much, much simplified by using a [FileWriter](https://docs.oracle.com/javase/8/docs/api/java/io/FileWriter.html) and [PrintWriter](https://docs.oracle.com/javase/8/docs/api/java/io/PrintWriter.html).
 
 ## Running the application
 
@@ -123,7 +129,7 @@ java ProcessScheduling input_file.txt output_file.txt
 ## Observations and Lessons Learned
 
 ### Priority Queue and Modifying Priorities
-One of the notable thing that I have learned is that PriorityQueue only evaluates the priority comparison using `Comparator<T>::compare` when adding to queue, and not from removing.  This kind of makes sense since this essentially makes the class efficient since it won't have to find it using the comparator when removing.  This is highly efficient when the element priorities are not modified, but adds overhead when the priorities are modified since you will essentially have to remove the element whose priority is modified then re-insert in the queue. This behavior can be seen when you run in the `ProcessScheduling.testPriorityQueueBehavior` static method.
+One of the notable thing that I have learned is that PriorityQueue only evaluates the priority comparison using `Comparator<T>::compare` when adding to queue, and not from removing.  This kind of makes sense since this essentially makes the class efficient since it won't have to find it using the comparator when removing.  This is highly efficient when the element priorities are not modified, but adds overhead when the priorities are modified since you will essentially have to remove the element whose priority is modified then re-insert in the queue. This behavior can be seen when you run in the `ProcessScheduling::testPriorityQueueBehavior` static method.
 
 It is also worth noting that when updating the priorities in the queue that you also don't update the queue itself while iterating you will get ConcurrentModificationException--i.e., modify the processes first, then re-add those in the queue in another loop.
 

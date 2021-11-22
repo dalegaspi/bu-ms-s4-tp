@@ -479,7 +479,7 @@ public class ProcessScheduling {
 		 * @param process
 		 */
 		public void reportProcessRemovedFromQueue(Process process) {
-			log("Process removed from queue is %d, at time %d, wait time = %d, Total wait time = %f", process.getId(),
+			log("Process removed from queue is %d, at time %d, wait time = %d, Total wait time = %.1f", process.getId(),
 					getCurrentTime(), process.getWaitTime(), getTotalWaitTime());
 			log("%s", process.toString());
 		}
@@ -523,25 +523,28 @@ public class ProcessScheduling {
 					runProcess(processToRun);
 				}
 
+				if (processes.isEmpty()) {
+					log("%nD becomes empty at time at time %d", getCurrentTime());
+				}
+
 				if (isRunning() && isRunningProcessFinished()) {
 					var stoppedProcess = stopRunning();
 					reportProcessFinished(stoppedProcess);
 					adjustAndReportProcessPrioritiesInQueue();
-				}
-
-				incrementCurrentTime();
+				} else
+					incrementCurrentTime();
 			}
 
 			while (!pqueue.isEmpty()) {
-				var processToRun = pqueue.remove();
-
-				// calculate and set the wait time
-				var waitTime = calculateWaitTime(getCurrentTime(), processToRun);
-				processToRun.setWaitTime(waitTime);
-				addTotalWaitTime(waitTime);
-
 				// run process
 				if (!isRunning()) {
+					var processToRun = pqueue.remove();
+
+					// calculate and set the wait time
+					var waitTime = calculateWaitTime(getCurrentTime(), processToRun);
+					processToRun.setWaitTime(waitTime);
+					addTotalWaitTime(waitTime);
+
 					reportProcessRemovedFromQueue(processToRun);
 					runProcess(processToRun);
 				}
@@ -550,9 +553,8 @@ public class ProcessScheduling {
 					var stoppedProcess = stopRunning();
 					reportProcessFinished(stoppedProcess);
 					adjustAndReportProcessPrioritiesInQueue();
-				}
-
-				incrementCurrentTime();
+				} else
+					incrementCurrentTime();
 			}
 		}
 	}
@@ -626,7 +628,7 @@ public class ProcessScheduling {
 		var scheduler = new ProcessScheduler(plist);
 		scheduler.simulate();
 
-		Logger.log("Total wait time = %f", scheduler.getTotalWaitTime());
-		Logger.log("Average wait time = %f", scheduler.getAverageWaitTime());
+		Logger.log("Total wait time = %.1f", scheduler.getTotalWaitTime());
+		Logger.log("Average wait time = %.1f", scheduler.getAverageWaitTime());
 	}
 }

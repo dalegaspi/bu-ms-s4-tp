@@ -20,7 +20,7 @@ import java.util.stream.IntStream;
 public class ProcessScheduling {
 
 	/**
-	 * the defaults
+	 * the defaults for input/output filenames
 	 */
 	public static final String DEFAULT_INPUT_FILENAME = "process_scheduling_input.txt";
 	public static final String DEFAUL_OUTPUT_FILENAME = "process_scheduling_output.txt";
@@ -41,7 +41,7 @@ public class ProcessScheduling {
 		/**
 		 * Constructor to take array of ids to create the Process
 		 *
-		 * @param ids
+		 * @param ids args array of length 4
 		 */
 		public Process(Integer... ids) {
 			this(ids[0], ids[1], ids[2], ids[3]);
@@ -68,10 +68,20 @@ public class ProcessScheduling {
 			this.runStartTime = NOT_RUNNING;
 		}
 
+		/**
+		 * gets the id
+		 *
+		 * @return the id
+		 */
 		public int getId() {
 			return id;
 		}
 
+		/**
+		 * gets the priority
+		 *
+		 * @return the priority
+		 */
 		public int getPriority() {
 			return priority;
 		}
@@ -88,24 +98,43 @@ public class ProcessScheduling {
 
 		/**
 		 * overload to decrement priority by one (increase priority)
-		 *
 		 */
 		public void decrementPriorityByOne() {
 			setPriority(getPriority() - 1);
 		}
 
+		/**
+		 * get the arrival time
+		 *
+		 * @return arrival time
+		 */
 		public int getArrivalTime() {
 			return arrivalTime;
 		}
 
+		/**
+		 * get the duration
+		 *
+		 * @return the duration
+		 */
 		public int getDuration() {
 			return duration;
 		}
 
+		/**
+		 * The process wait time (removed from scheduler queue)
+		 *
+		 * @return the process wait time
+		 */
 		public int getWaitTime() {
 			return waitTime;
 		}
 
+		/**
+		 * set the process wait time (removed from scheduler queue)
+		 *
+		 * @param waitTime the new wait time
+		 */
 		public void setWaitTime(int waitTime) {
 			this.waitTime = waitTime;
 		}
@@ -134,10 +163,6 @@ public class ProcessScheduling {
 
 		public void setRunStartTime(int runStartTime) {
 			this.runStartTime = runStartTime;
-		}
-
-		public void stop() {
-			this.runStartTime = NOT_RUNNING;
 		}
 
 		@Override
@@ -210,6 +235,11 @@ public class ProcessScheduling {
 			}
 		}
 
+		/**
+		 * the original size of the process list
+		 *
+		 * @return
+		 */
 		public int getOriginalListSize() {
 			assert originalListSize > 0;
 			return this.originalListSize;
@@ -225,6 +255,7 @@ public class ProcessScheduling {
 	/**
 	 * Scheduler object
 	 */
+	@SuppressWarnings("OptionalUsedAsFieldOrParameterType")
 	static class ProcessScheduler {
 		// default max wait time
 		public static int DEFAULT_MAX_WAIT_TIME = 30;
@@ -232,10 +263,10 @@ public class ProcessScheduling {
 		private int currentTime = 0;
 		private Optional<Process> runningProcess = Optional.empty();
 		private PriorityQueue<Process> pqueue;
-		private ProcessList processes;
+		private final ProcessList processes;
 		private final int maxWaitTime;
 		private int totalWaitTime = 0;
-		private Consumer<String> eventHandler;
+		private final Consumer<String> eventHandler;
 
 		/**
 		 * creates a priority queue
@@ -336,7 +367,6 @@ public class ProcessScheduling {
 		}
 
 		/**
-		 *
 		 * @return true if running
 		 */
 		public boolean isRunning() {
@@ -345,7 +375,6 @@ public class ProcessScheduling {
 
 		/**
 		 * changes the run state of the scheduler based on current time
-		 *
 		 */
 		public void runProcess(Process process) {
 			process.setRunStartTime(getCurrentTime());
@@ -357,7 +386,6 @@ public class ProcessScheduling {
 		 */
 		public Process stopRunning() {
 			assert runningProcess.isPresent();
-
 			var currentlyRunningProcess = runningProcess.get();
 			runningProcess = Optional.empty();
 			return currentlyRunningProcess;
@@ -452,13 +480,14 @@ public class ProcessScheduling {
 			if (!pqueue.isEmpty()) {
 				// determine the processes that have been waiting too long
 				var processesToUpdate = pqueue.stream()
+						// process is waiting too long is true if (currentTime - process.arrivalTime) >= maxWaitTime)
 						.filter(p -> calculateWaitTime(getCurrentTime(), p) > getMaxWaitTime())
 						.collect(Collectors.toList());
 
 				processesToUpdate.forEach(p -> {
 					var currentProcessWaitTime = calculateWaitTime(getCurrentTime(), p);
 
-					// if process is waiting too long (currentTime >= maxWaitTime),
+					// if process is waiting too long i.e., (currentTime - process.arrivalTime) >= maxWaitTime),
 					// decrement its priority by 1
 					log("PID = %d, wait time = %d, current priority = %d", p.getId(), currentProcessWaitTime,
 							p.getPriority());
@@ -466,7 +495,7 @@ public class ProcessScheduling {
 					p.decrementPriorityByOne();
 					log("PID = %d, new priority = %d", p.getId(), p.getPriority());
 
-					// reinsert adjust process in the queue
+					// reinsert adjust process in the queue because PriorityQueue only recomputes on enqueue
 					reinsertIntoPriorityQueue(pqueue, p);
 				});
 			}
@@ -494,6 +523,36 @@ public class ProcessScheduling {
 		}
 
 		/**
+		 * run one process
+		 */
+		private void runOneProcess() {
+			assert !isRunning();
+
+			// if we're not running anything, run something
+			var processToRun = pqueue.remove();
+
+			// calculate and save the process wait time
+			var waitTime = calculateWaitTime(getCurrentTime(), processToRun);
+			processToRun.setWaitTime(waitTime);
+			addTotalWaitTime(waitTime);
+
+			// run process
+			reportProcessRemovedFromQueue(processToRun);
+			runProcess(processToRun);
+		}
+
+		/**
+		 * stop running process and adjust priorities
+		 *
+		 */
+		private void stopRunningProcessAndAdjustPriorities() {
+			assert isRunning();
+			var stoppedProcess = stopRunning();
+			reportProcessFinished(stoppedProcess);
+			adjustAndReportProcessPrioritiesInQueue();
+		}
+
+		/**
 		 * The scheduler simulation
 		 */
 		public void simulate() {
@@ -504,56 +563,32 @@ public class ProcessScheduling {
 				// get the top process without removing
 				var top = processes.peek();
 
-				if (top.getArrivalTime() <= getCurrentTime()) {
-					// remove from list then add to priority queue
+				// remove from list then add to priority queue
+				if (top.getArrivalTime() <= getCurrentTime())
 					pqueue.add(processes.remove());
-				}
 
-				if (!pqueue.isEmpty() && !isRunning()) {
-					// if we're not running anything, run something
-					var processToRun = pqueue.remove();
+				// if pqueue is not empty run one process if not running
+				if (!pqueue.isEmpty() && !isRunning())
+					runOneProcess();
 
-					// calculate and save the process wait time
-					var waitTime = calculateWaitTime(getCurrentTime(), processToRun);
-					processToRun.setWaitTime(waitTime);
-					addTotalWaitTime(waitTime);
-
-					// run process
-					reportProcessRemovedFromQueue(processToRun);
-					runProcess(processToRun);
-				}
-
-				if (processes.isEmpty()) {
+				if (processes.isEmpty())
 					log("%nD becomes empty at time at time %d", getCurrentTime());
-				}
 
-				if (isRunning() && isRunningProcessFinished()) {
-					var stoppedProcess = stopRunning();
-					reportProcessFinished(stoppedProcess);
-					adjustAndReportProcessPrioritiesInQueue();
-				} else
+				if (isRunning() && isRunningProcessFinished())
+					stopRunningProcessAndAdjustPriorities();
+				else
 					incrementCurrentTime();
 			}
 
+			// run the rest of the processes that are still in the queue
 			while (!pqueue.isEmpty()) {
-				// run process
-				if (!isRunning()) {
-					var processToRun = pqueue.remove();
+				// run one process if not running
+				if (!isRunning())
+					runOneProcess();
 
-					// calculate and set the wait time
-					var waitTime = calculateWaitTime(getCurrentTime(), processToRun);
-					processToRun.setWaitTime(waitTime);
-					addTotalWaitTime(waitTime);
-
-					reportProcessRemovedFromQueue(processToRun);
-					runProcess(processToRun);
-				}
-
-				if (isRunning() && isRunningProcessFinished()) {
-					var stoppedProcess = stopRunning();
-					reportProcessFinished(stoppedProcess);
-					adjustAndReportProcessPrioritiesInQueue();
-				} else
+				if (isRunning() && isRunningProcessFinished())
+					stopRunningProcessAndAdjustPriorities();
+				else
 					incrementCurrentTime();
 			}
 		}
@@ -566,17 +601,34 @@ public class ProcessScheduling {
 		private static Logger instance;
 
 		private PrintWriter output;
+
+		/**
+		 * our private constructor
+		 *
+		 * @param fname
+		 * @throws IOException
+		 */
 		private Logger(String fname) throws IOException {
 			output = new PrintWriter(new FileWriter(fname), true);
 		}
 
+		/**
+		 * Initialize our logger
+		 *
+		 * @param fname
+		 * @throws IOException
+		 */
 		public static void init(String fname) throws IOException {
 			instance = new Logger(fname);
 		}
 
+		/**
+		 * The actual logging method
+		 * @param format format
+		 * @param args args
+		 */
 		public static void log(String format, Object... args) {
 			System.out.printf(format + "%n", args);
-
 			if (instance != null)
 				instance.output.println(String.format(format, args));
 		}

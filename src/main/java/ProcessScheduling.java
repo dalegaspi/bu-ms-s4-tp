@@ -77,16 +77,21 @@ public class ProcessScheduling {
 		}
 
 		/**
-		 * set the process priority; using synchronized is a bit superfluous here, but
-		 * for completeness we are taking into account that per term project description
-		 * setting priority can be performed at each logical time (i.e., in a separate
-		 * thread)
+		 * set the process priority
 		 *
 		 * @param priority
 		 *            the new priority
 		 */
-		public synchronized void setPriority(int priority) {
+		public void setPriority(int priority) {
 			this.priority = priority;
+		}
+
+		/**
+		 * overload to decrement priority by one (increase priority)
+		 *
+		 */
+		public void decrementPriorityByOne() {
+			setPriority(getPriority() - 1);
 		}
 
 		public int getArrivalTime() {
@@ -133,6 +138,18 @@ public class ProcessScheduling {
 
 		public void stop() {
 			this.runStartTime = NOT_RUNNING;
+		}
+
+		@Override
+		public String toString() {
+			return String.format(
+			// @formatter:off
+					"Process id = %d%n" +
+					"       Priority = %d%n" +
+					"       Arrival = %d%n" +
+					"       Duration = %d",
+			// @formatter:on
+					getId(), getPriority(), getArrivalTime(), getDuration());
 		}
 	}
 
@@ -215,9 +232,9 @@ public class ProcessScheduling {
 		private int currentTime = 0;
 		private Optional<Process> runningProcess = Optional.empty();
 		private PriorityQueue<Process> pqueue;
-		private float totalWaitTime;
 		private ProcessList processes;
 		private final int maxWaitTime;
+		private int totalWaitTime = 0;
 		private Consumer<String> eventHandler;
 
 		/**
@@ -248,9 +265,10 @@ public class ProcessScheduling {
 		 * reset times and other related stuff to throught he whole thing again
 		 */
 		public void reset() {
-			totalWaitTime = 0;
 			currentTime = 0;
-			this.pqueue = createPriorityQueue();
+			totalWaitTime = 0;
+			pqueue = createPriorityQueue();
+			runningProcess = Optional.empty();
 		}
 
 		/**
@@ -337,8 +355,21 @@ public class ProcessScheduling {
 		/**
 		 * stop run state of scheduler based on current time
 		 */
-		public void stopRunning() {
+		public Process stopRunning() {
+			assert runningProcess.isPresent();
+
+			var currentlyRunningProcess = runningProcess.get();
 			runningProcess = Optional.empty();
+			return currentlyRunningProcess;
+		}
+
+		/**
+		 * get the running process
+		 *
+		 * @return the running process, if any
+		 */
+		public Optional<Process> getRunningProcess() {
+			return runningProcess;
 		}
 
 		/**
@@ -358,17 +389,16 @@ public class ProcessScheduling {
 		 * @return the total
 		 */
 		public float getTotalWaitTime() {
-			return totalWaitTime;
+			return (float) totalWaitTime;
 		}
 
 		/**
-		 * increments total wait time
+		 * add to total wait time
 		 *
-		 * @param time
-		 *            the time delta
+		 * @param delta
 		 */
-		private void incTotalWaitTime(int time) {
-			totalWaitTime += time;
+		public void addTotalWaitTime(int delta) {
+			totalWaitTime += delta;
 		}
 
 		/**
@@ -377,18 +407,20 @@ public class ProcessScheduling {
 		 * @return the ave wait time
 		 */
 		public float getAverageWaitTime() {
-			return totalWaitTime / processes.getOriginalListSize();
+			return getTotalWaitTime() / processes.getOriginalListSize();
 		}
 
 		/**
 		 * Calculation of a wait time of a process
 		 *
-		 * @param timeOfRemovalFromQueue time removed from queue
-		 * @param p the process
+		 * @param referenceTime
+		 *            reference time
+		 * @param p
+		 *            the process
 		 * @return the wait time for the process
 		 */
-		public static int calculateWaitTime(int timeOfRemovalFromQueue, Process p) {
-			return timeOfRemovalFromQueue - p.getArrivalTime();
+		public static int calculateWaitTime(int referenceTime, Process p) {
+			return referenceTime - p.getArrivalTime();
 		}
 
 		/**
@@ -415,10 +447,50 @@ public class ProcessScheduling {
 		/**
 		 * adjust process priorities based on max wait times and current time
 		 */
-		private void adjustProcessPrioritiesInQueue() {
-			if (!processes.isEmpty()) {
+		private void adjustAndReportProcessPrioritiesInQueue() {
+			log("%nUpdate priority:");
+			if (!pqueue.isEmpty()) {
+				// determine the processes that have been waiting too long
+				var processesToUpdate = pqueue.stream()
+						.filter(p -> calculateWaitTime(getCurrentTime(), p) > getMaxWaitTime())
+						.collect(Collectors.toList());
 
+				processesToUpdate.forEach(p -> {
+					var currentProcessWaitTime = calculateWaitTime(getCurrentTime(), p);
+
+					// if process is waiting too long (currentTime >= maxWaitTime),
+					// decrement its priority by 1
+					log("PID = %d, wait time = %d, current priority = %d", p.getId(), currentProcessWaitTime,
+							p.getPriority());
+					// adjust priority
+					p.decrementPriorityByOne();
+					log("PID = %d, new priority = %d", p.getId(), p.getPriority());
+
+					// reinsert adjust process in the queue
+					reinsertIntoPriorityQueue(pqueue, p);
+				});
 			}
+			log("");
+		}
+
+		/**
+		 * Log that process is removed from queue to start running
+		 *
+		 * @param process
+		 */
+		public void reportProcessRemovedFromQueue(Process process) {
+			log("Process removed from queue is %d, at time %d, wait time = %d, Total wait time = %f", process.getId(),
+					getCurrentTime(), process.getWaitTime(), getTotalWaitTime());
+			log("%s", process.toString());
+		}
+
+		/**
+		 * Log that process is finished
+		 *
+		 * @param process
+		 */
+		public void reportProcessFinished(Process process) {
+			log("Process %d is finished at time %d", process.getId(), getCurrentTime());
 		}
 
 		/**
@@ -427,7 +499,6 @@ public class ProcessScheduling {
 		public void simulate() {
 			log("%nMaximum wait time = %d%n", getMaxWaitTime());
 			reset();
-			stopRunning();
 
 			while (!processes.isEmpty()) {
 				// get the top process without removing
@@ -440,24 +511,47 @@ public class ProcessScheduling {
 
 				if (!pqueue.isEmpty() && !isRunning()) {
 					// if we're not running anything, run something
-					var p = pqueue.remove();
+					var processToRun = pqueue.remove();
 
-					// sets running process;
-					runProcess(p);
+					// calculate and save the process wait time
+					var waitTime = calculateWaitTime(getCurrentTime(), processToRun);
+					processToRun.setWaitTime(waitTime);
+					addTotalWaitTime(waitTime);
+
+					// run process
+					reportProcessRemovedFromQueue(processToRun);
+					runProcess(processToRun);
 				}
 
 				if (isRunning() && isRunningProcessFinished()) {
-					stopRunning();
-					adjustProcessPrioritiesInQueue();
+					var stoppedProcess = stopRunning();
+					reportProcessFinished(stoppedProcess);
+					adjustAndReportProcessPrioritiesInQueue();
 				}
 
 				incrementCurrentTime();
 			}
 
 			while (!pqueue.isEmpty()) {
-				var p = pqueue.remove();
+				var processToRun = pqueue.remove();
+
+				// calculate and set the wait time
+				var waitTime = calculateWaitTime(getCurrentTime(), processToRun);
+				processToRun.setWaitTime(waitTime);
+				addTotalWaitTime(waitTime);
+
 				// run process
-				adjustProcessPrioritiesInQueue();
+				if (!isRunning()) {
+					reportProcessRemovedFromQueue(processToRun);
+					runProcess(processToRun);
+				}
+
+				if (isRunning() && isRunningProcessFinished()) {
+					var stoppedProcess = stopRunning();
+					reportProcessFinished(stoppedProcess);
+					adjustAndReportProcessPrioritiesInQueue();
+				}
+
 				incrementCurrentTime();
 			}
 		}

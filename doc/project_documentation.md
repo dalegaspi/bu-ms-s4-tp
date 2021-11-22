@@ -119,9 +119,11 @@ java ProcessScheduling input_file.txt output_file.txt
 ## Observations and Lessons Learned
 
 ### Priority Queue and Modifying Priorities
-One of the notable thing that I have learned is that PriorityQueue only evaluates the priority comparison using `Comparator<T>::compare` when adding to queue, and not from removing.  This kind of makes sense since this essentially makes the class efficient since it won't have to find it using the comparator when removing.  This is highly efficient when the element priorities are not modified, but adds overhead when the priorities are modified since you will essentially have to remove the element whose priority is modified then re-insert in the queue.
+One of the notable thing that I have learned is that PriorityQueue only evaluates the priority comparison using `Comparator<T>::compare` when adding to queue, and not from removing.  This kind of makes sense since this essentially makes the class efficient since it won't have to find it using the comparator when removing.  This is highly efficient when the element priorities are not modified, but adds overhead when the priorities are modified since you will essentially have to remove the element whose priority is modified then re-insert in the queue. This behavior can be seen when you run in the `ProcessScheduling.testPriorityQueueBehavior` static method.
 
-This behavior can be tested in the `ProcessScheduling.testPriorityQueueBehavior` method.
+It is also worth noting that when updating the priorities in the queue that you also don't update the queue itself while iterating you will get ConcurrentModificationException--i.e., modify the processes first, then re-add those in the queue in another loop.
+
+Lastly, the way `PriorityQueue::remove(Object)` works is it finds it by using the object's `::equals` implementation (by default it does ref equality).  If the Element overrides the method, unexpected behavior may occur.  Luckily we didn't feel the need to override the `Process::equals` behavior so we never had to deal with the unexpected behavior changes.
 
 ### Conclusion
 The extensive generics provided out of the box by Java is almost always taken for grated nowadays (I'm guilty of such) and this project has certainly helped me better understand and appreciate them more, especially with the `PriorityQueue` which I should probably use more often with my projects when applicable.

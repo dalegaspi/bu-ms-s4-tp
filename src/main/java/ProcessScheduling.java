@@ -225,7 +225,7 @@ public class ProcessScheduling {
 	/**
 	 * Scheduler object
 	 */
-	static class Scheduler {
+	static class ProcessScheduler {
 		// default max wait time
 		public static int DEFAULT_MAX_WAIT_TIME = 30;
 
@@ -307,7 +307,7 @@ public class ProcessScheduling {
 		 * @param eventHandler
 		 *            event handler (logging)
 		 */
-		public Scheduler(ProcessList processes, int maxWaitTime, Consumer<String> eventHandler) {
+		public ProcessScheduler(ProcessList processes, int maxWaitTime, Consumer<String> eventHandler) {
 			this.processes = processes;
 			this.maxWaitTime = maxWaitTime;
 			this.eventHandler = eventHandler;
@@ -319,7 +319,7 @@ public class ProcessScheduling {
 		 * @param processes
 		 *            the process list
 		 */
-		public Scheduler(ProcessList processes) {
+		public ProcessScheduler(ProcessList processes) {
 			this(processes, DEFAULT_MAX_WAIT_TIME, Logger::log);
 		}
 
@@ -331,7 +331,7 @@ public class ProcessScheduling {
 		 * @param maxWaitTime
 		 *            the max wait time
 		 */
-		public Scheduler(ProcessList processes, int maxWaitTime) {
+		public ProcessScheduler(ProcessList processes, int maxWaitTime) {
 			this(processes, maxWaitTime, Logger::log);
 		}
 
@@ -584,7 +584,7 @@ public class ProcessScheduling {
 	 * This is just a method to test priority queue behavior
 	 */
 	public static void testPriorityQueueBehavior() {
-		var pq = Scheduler.createPriorityQueue();
+		var pq = ProcessScheduler.createPriorityQueue();
 
 		pq.addAll(IntStream.rangeClosed(1, 10).mapToObj(i -> new Process(i, i, i, i)).collect(Collectors.toList()));
 
@@ -597,7 +597,7 @@ public class ProcessScheduling {
 		var modifiedPriority = pq.peek();
 		modifiedPriority.setPriority(100000);
 
-		Scheduler.reinsertIntoPriorityQueue(pq, modifiedPriority);
+		ProcessScheduler.reinsertIntoPriorityQueue(pq, modifiedPriority);
 
 		// reinsert the rest
 		while (!pq.isEmpty())
@@ -623,7 +623,7 @@ public class ProcessScheduling {
 		var plist = ProcessList.getProcessListFromFile(input_fname);
 		Logger.log(plist.toString());
 
-		var scheduler = new Scheduler(plist);
+		var scheduler = new ProcessScheduler(plist);
 		scheduler.simulate();
 
 		Logger.log("Total wait time = %f", scheduler.getTotalWaitTime());

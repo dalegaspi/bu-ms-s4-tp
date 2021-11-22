@@ -51,6 +51,10 @@ ps.map(p -> p.split(" "))
 
 The constructs reads every line and converts it into array of Integer of size 4, then creates the `Process` instance (for each line processed) using the `Process(Integer... ids)` constructor.  The list is then passed as paramter for the `ProcessList` constructor to create the final list.
 
+### ProcessScheduler
+
+This is the class that ties it all together, the actual object that represents the scheduler.  This has the `simulate` method that loads the processes metadata from file to create the `Process` objects, create the `ProcessList` and then creates the internal `PriorityQueue` and simulate the process scheduling based on the provided data.
+
 ### Custom Comparator and the Priority Queue
 
 Prior to Java 8, you will need to define a `Comparator<T>` to create the `PriorityQueue<T>`, and for this  case this would look like this:
@@ -102,7 +106,7 @@ PriorityQueue<Process> pq =
                 Comparator.comparingInt(Process::getPriority));
 ```
 
-This solution is using the `comparingInt` to create the priority queue.
+This solution is using the Java 8's `comparingInt` static method to create the priority queue.
 
 ### Logging
 

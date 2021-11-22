@@ -1,4 +1,4 @@
-# CS 526 Term Project
+# CS526 Term Project
 
 Dexter Legaspi
 dlegaspi@bu.edu

@@ -68,7 +68,7 @@ class ProcessList extends ArrayDeque<Process> {
 	/**
 	 * the original size of the process list
 	 *
-	 * @return
+	 * @return the original list size
 	 */
 	public int getOriginalListSize() {
 		assert originalListSize > 0;

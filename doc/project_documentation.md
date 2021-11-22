@@ -106,7 +106,7 @@ This solution is using the `comparingInt` to create the priority queue.
 
 ### Logging
 
-A class `Logger` is defined to be able to output to a file `process_scheduling_output.txt` and at the same time log to standard output (the screen).  This sort of acts like the logging classes that comes with `java.util.logging` package but much, much simplified by using a [FileWriter](https://docs.oracle.com/javase/8/docs/api/java/io/FileWriter.html) and [PrintWriter](https://docs.oracle.com/javase/8/docs/api/java/io/PrintWriter.html)
+A class `Logger` is defined to be able to output to a file `process_scheduling_output.txt` and at the same time log to standard output (the screen).  This sort of acts like the logging classes that comes with `java.util.logging` package but much, much simplified by using a [FileWriter](https://docs.oracle.com/javase/8/docs/api/java/io/FileWriter.html) and [PrintWriter](https://docs.oracle.com/javase/8/docs/api/java/io/PrintWriter.html).
 
 ## Running the application
 

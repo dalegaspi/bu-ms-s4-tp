@@ -234,25 +234,22 @@ class ProcessScheduler {
 	private void adjustAndReportProcessPrioritiesInQueue() {
 		log("%nUpdate priority:");
 		if (!Q.isEmpty()) {
+			// calculate the current wait time for each process
+			Q.forEach(p -> p.setWaitTime(calculateWaitTime(getCurrentTime(), p)));
+
 			// determine the processes that have been waiting too long
-			var processesToUpdate = Q.stream()
-					// process is waiting too long if (currentTime - process.arrivalTime) >=
-					// maxWaitTime)
-					.filter(p -> calculateWaitTime(getCurrentTime(), p) > getMaxWaitTime())
+			// i.e., p.waitTime >= maxWaitTime)
+			var processesToUpdate = Q.stream().filter(p -> p.getWaitTime() > getMaxWaitTime())
 					.collect(Collectors.toList());
 
 			processesToUpdate.forEach(p -> {
-				// if process is waiting too long, i.e.:
-				// (currentTime - process.arrivalTime) >= maxWaitTime)
-				// decrement its priority by 1
-				log("PID = %d, wait time = %d, current priority = %d", p.getId(),
-						calculateWaitTime(getCurrentTime(), p), p.getPriority());
+				log("PID = %d, wait time = %d, current priority = %d", p.getId(), p.getWaitTime(), p.getPriority());
 
-				// adjust priority
+				// if process is waiting too long, decrement its priority by 1
 				p.decrementPriorityByOne();
 				log("PID = %d, new priority = %d", p.getId(), p.getPriority());
 
-				// reinsert in the queue as PriorityQueue only recomputes on enqueue
+				// remove then reinsert in the queue
 				reinsertIntoPriorityQueue(Q, p);
 			});
 		}

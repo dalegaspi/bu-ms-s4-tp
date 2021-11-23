@@ -148,13 +148,13 @@ public class Process {
 
 	@Override
 	public String toString() {
-		return String.format(
 		// @formatter:off
-                "Process id = %d%n" +
+		return String.format(
+				"Process id = %d%n" +
                         "       Priority = %d%n" +
                         "       Arrival = %d%n" +
                         "       Duration = %d",
-                // @formatter:on
 				getId(), getPriority(), getArrivalTime(), getDuration());
+		// @formatter:on
 	}
 }

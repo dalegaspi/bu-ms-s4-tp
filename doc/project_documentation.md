@@ -147,6 +147,32 @@ java ProcessScheduling input_file.txt output_file.txt
 
 One of the notable things that I have learned while writing the code for this project is that default Java implementation of `PriorityQueue` sorts elements with the comparator [when adding to queue and not from removing](https://stackoverflow.com/a/1871303/918858); changing the priority of elements once they are in the queue does not reorder them.  This makes sense since as this essentially makes the class efficient; both enqueueing/removing from queue has time complexity of O(log n) per the [documentation](https://docs.oracle.com/javase/7/docs/api/java/util/PriorityQueue.html).  This is highly efficient when the element priorities are not modified, but adds overhead when the priorities are modified since you will have to remove the element whose priority is modified (removing objects from the queue has time complexity of O(n)) then re-insert in the queue. This behavior can be demonstrated when you run in the `ProcessScheduling::testPriorityQueueBehavior` static method.
 
+In the implementation, to abstract this behavior from the rest of the `ProcessScheduler` code, we override the `PriorityQueue::add(E)` method to check if the element is already in the queue (using `contains`) and if it is we remove then (re-)add it in the queue.  We need to check first if it's in the queue because the `PriorityQueue` behavior _allows duplicates_.
+
+```java
+public static PriorityQueue<Process> createPriorityQueue() {
+    // create an anonymous class instance to change the behavior
+    // of the default PriorityQueue
+    return new PriorityQueue<>(Process.getPriorityComparator()) {
+
+        /**
+         * This forces the re-ordering if the process exists
+         * already in the queue
+         *
+         * @param process the process
+         */
+        @Override
+        public boolean add(Process process) {
+            if (contains(process)) {
+                remove(process);
+            }
+
+            return super.add(process);
+        }
+    };
+}
+```
+
 It is also worth noting that when updating the priorities in the queue that you also don't update the queue itself while iterating you will get `ConcurrentModificationException`--i.e., modify the processes first, then re-add those in the queue in another loop.
 
 Lastly, the way `PriorityQueue::remove(Object)` works is it finds it by using the object's `::equals` implementation (by default it does ref equality).  If the Element overrides the method, unexpected behavior may occur.  Luckily we didn't feel the need to override the `Process::equals` behavior so we never had to deal with the unexpected behavior changes.

@@ -23,7 +23,7 @@ class ProcessList extends ArrayDeque<Process> {
 	 *
 	 * @param processes
 	 *            the process list
-	 * @return
+	 * @return sorted list
 	 */
 	private static Collection<Process> sortListByArrival(Collection<Process> processes) {
 		return processes.stream().sorted(Process.getArrivalComparator()).collect(Collectors.toList());

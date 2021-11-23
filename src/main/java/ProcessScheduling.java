@@ -83,7 +83,8 @@ public class ProcessScheduling {
 		var modifiedPriority = pq.peek();
 		modifiedPriority.setPriority(100000);
 
-		ProcessScheduler.reinsertIntoPriorityQueue(pq, modifiedPriority);
+		pq.remove(modifiedPriority);
+		pq.add(modifiedPriority);
 
 		// reinsert the rest
 		while (!pq.isEmpty())

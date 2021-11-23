@@ -32,24 +32,29 @@ class ProcessScheduler {
 	 * @return a new priority queue
 	 */
 	public static PriorityQueue<Process> createPriorityQueue() {
-		return new PriorityQueue<>(Process.getPriorityComparator());
+		// create an anonymous class instance to change the behavior
+		// of the default PriorityQueue
+		return new PriorityQueue<>(Process.getPriorityComparator()) {
+
+			/**
+			 * This forces the re-ordering if the process exists already in the queue
+			 *
+			 * @param process
+			 *            the process
+			 */
+			@Override
+			public boolean add(Process process) {
+				if (contains(process)) {
+					remove(process);
+				}
+
+				return super.add(process);
+			}
+		};
 	}
 
 	/**
-	 * reinsert into priority queue; usually for p that changed priority
-	 *
-	 * @param queue
-	 *            the priority queue
-	 * @param p
-	 *            the process to reinsert
-	 */
-	public static void reinsertIntoPriorityQueue(PriorityQueue<Process> queue, Process p) {
-		queue.remove(p);
-		queue.add(p);
-	}
-
-	/**
-	 * reset times and other related stuff to throught he whole thing again
+	 * reset times and other related stuff to through the whole thing again
 	 */
 	public void reset() {
 		currentTime = 0;
@@ -148,15 +153,6 @@ class ProcessScheduler {
 	}
 
 	/**
-	 * get the running process
-	 *
-	 * @return the running process, if any
-	 */
-	public Optional<Process> getRunningProcess() {
-		return runningProcess;
-	}
-
-	/**
 	 * if the scheduler is running a process, check if it's finished: currentTime -
 	 * p.startTime >= p.getDuration
 	 *
@@ -180,6 +176,7 @@ class ProcessScheduler {
 	 * add to total wait time
 	 *
 	 * @param delta
+	 *            time
 	 */
 	public void addTotalWaitTime(int delta) {
 		totalWaitTime += delta;
@@ -249,8 +246,9 @@ class ProcessScheduler {
 				p.decrementPriorityByOne();
 				log("PID = %d, new priority = %d", p.getId(), p.getPriority());
 
-				// remove then reinsert in the queue
-				reinsertIntoPriorityQueue(Q, p);
+				// This add() is an overridden version to ensure that the
+				// priority sorting is re-calculated.
+				Q.add(p);
 			});
 		}
 		log("");
@@ -260,6 +258,7 @@ class ProcessScheduler {
 	 * Log that process is removed from queue to start running
 	 *
 	 * @param process
+	 *            the process
 	 */
 	public void reportProcessRemovedFromQueue(Process process) {
 		log("Process removed from queue is %d, at time %d, wait time = %d, Total wait time = %.1f", process.getId(),
@@ -271,6 +270,7 @@ class ProcessScheduler {
 	 * Log that process is finished
 	 *
 	 * @param process
+	 *            the process
 	 */
 	public void reportProcessFinished(Process process) {
 		log("Process %d is finished at time %d", process.getId(), getCurrentTime());

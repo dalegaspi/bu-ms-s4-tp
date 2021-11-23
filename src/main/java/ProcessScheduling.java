@@ -105,12 +105,13 @@ public class ProcessScheduling {
 
 		String input_fname = args.length > 0 ? args[0] : DEFAULT_INPUT_FILENAME;
 		String output_fname = args.length > 1 ? args[1] : DEFAUL_OUTPUT_FILENAME;
+		int maxWaitTime = args.length > 2 ? Integer.parseInt(args[2]) : -1;
 		Logger.init(output_fname);
 
 		var plist = ProcessList.getProcessListFromFile(input_fname);
 		Logger.log(plist.toString());
 
-		var scheduler = new ProcessScheduler(plist);
+		var scheduler = maxWaitTime > -1 ? new ProcessScheduler(plist, maxWaitTime) : new ProcessScheduler(plist);
 		scheduler.simulate();
 
 		Logger.log("Total wait time = %.1f", scheduler.getTotalWaitTime());

@@ -138,10 +138,21 @@ public class Process {
 		return Comparator.comparingInt(Process::getArrivalTime);
 	}
 
+	/**
+	 * get current run start time
+	 *
+	 * @return the current start r
+	 */
 	public int getRunStartTime() {
 		return runStartTime;
 	}
 
+	/**
+	 * set current run start time
+	 *
+	 * @param runStartTime
+	 *            the start time
+	 */
 	public void setRunStartTime(int runStartTime) {
 		this.runStartTime = runStartTime;
 	}

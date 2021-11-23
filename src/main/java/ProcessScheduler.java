@@ -261,8 +261,8 @@ class ProcessScheduler {
 	 *            the process
 	 */
 	public void reportProcessRemovedFromQueue(Process process) {
-		log("Process removed from queue is %d, at time %d, wait time = %d, Total wait time = %.1f", process.getId(),
-				getCurrentTime(), process.getWaitTime(), getTotalWaitTime());
+		log("Process removed from queue is: id = %d, at time %d, wait time = %d Total wait time = %.1f",
+				process.getId(), getCurrentTime(), process.getWaitTime(), getTotalWaitTime());
 		log("%s", process.toString());
 	}
 

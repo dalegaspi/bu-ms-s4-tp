@@ -334,7 +334,7 @@ class ProcessScheduler {
 		}
 
 		// run the rest of the processes that are still in the queue
-		while (!Q.isEmpty()) {
+		while (!Q.isEmpty() || isRunning()) {
 			// run one process if not running
 			if (!isRunning())
 				runOneProcess();

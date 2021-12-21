@@ -36,15 +36,16 @@
                         <format>
                             <!-- define the files to apply to -->
                             <includes>
-                                <include>*.md</include>
-                                <include>.gitignore</include>
+                                <include>src/main/java/**/*.java</include>
+                                <include>src/test/java/**/*.java</include>
                             </includes>
+
                             <!-- define the steps to apply to those files -->
                             <trimTrailingWhitespace/>
                             <endWithNewline/>
                             <indent>
-                                <tabs>true</tabs>
-                                <spacesPerTab>4</spacesPerTab>
+                                <spaces>true</spaces>
+                                <spacesPerTab>2</spacesPerTab>
                             </indent>
                         </format>
                     </formats>
@@ -52,7 +53,10 @@
                     <java>
                         <!-- no need to specify files, inferred automatically, but you can if you want -->
 
+
                         <eclipse>
+                            <file>${project.basedir}/eclipse-formatter.xml</file> <!-- optional -->
+
                         </eclipse>
 
                         <!-- make sure every file has the following copyright header.

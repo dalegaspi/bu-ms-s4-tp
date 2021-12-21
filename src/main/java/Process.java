@@ -153,8 +153,10 @@ public class Process {
     public String toString() {
         // @formatter:off
         return String.format(
-                        "Process id = %d%n" + "       Priority = %d%n" + "       Arrival = %d%n"
-                                        + "       Duration = %d",
+                "Process id = %d%n" +
+                        "       Priority = %d%n" +
+                        "       Arrival = %d%n" +
+                        "       Duration = %d",
                         getId(), getPriority(), getArrivalTime(), getDuration());
         // @formatter:on
     }
